@@ -76,6 +76,11 @@ var createRouter = function(options) { // TODO: params instead of matches
 	
 	var router = function(methods) {
 		return function(pattern, rewrite, fn) {
+			if (arguments.length === 1) {
+				fn = pattern;
+				rewrite = undefined;
+				pattern = /.*/;
+			}
 			if (!fn) {
 				fn = rewrite;
 				rewrite = undefined;
@@ -112,7 +117,15 @@ var createRouter = function(options) { // TODO: params instead of matches
 	that.post = router(methods.post);
 	that.head = router(methods.head);
 
-	that.file = function(pattern, rewrite) {
+	that.file = function(pattern, rewrite, options) {
+		if (arguments.length === 1 || typeof rewrite === 'object') {
+			options = rewrite;
+			rewrite = pattern;
+			pattern = /(.*)/g;
+		}
+		options = options || {};
+		options.status = options.status || 200;
+		
 		that.get(pattern, rewrite, function(request, response) {
 			var url = path.normalize(request.url.split('?')[0]);
 
@@ -128,9 +141,7 @@ var createRouter = function(options) { // TODO: params instead of matches
 					response.end();
 					return;
 				}
-				response.writeHead(200, {
-					'content-type':mimes.resolve(url)
-				});
+				response.writeHead(options.status, {'content-type':mimes.resolve(url)});
 				response.end(buffer);
 			});
 		});
