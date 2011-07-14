@@ -136,7 +136,7 @@ exports.onfilerequest = function(dir, options) {
 	return function(request, response) {
 		var url = request.url.split('?')[0];
 		
-		url = path.normalize(url);
+		url = (request.matches && request.matches.path) || path.normalize(url);
 		
 		// security check
 		if (/\/\.\.\//.test(url)) {
