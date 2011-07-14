@@ -2,6 +2,10 @@ var common = require('common');
 var http = require('http');
 var https = require('https');
 
+var fs = require('fs');
+var path = require('path');
+var mimes = require('mimes');
+
 var matcher = require('./matcher');
 
 var createRouter = function(options) { // TODO: params instead of matches
@@ -108,8 +112,28 @@ var createRouter = function(options) { // TODO: params instead of matches
 	that.post = router(methods.post);
 	that.head = router(methods.head);
 
-	that.file = function(pattern, base) {
-		that.get(pattern, exports.onfilerequest(base || '.'));
+	that.file = function(pattern, rewrite) {
+		that.get(pattern, rewrite, function(request, response) {
+			var url = path.normalize(request.url.split('?')[0]);
+
+			if (/\/\.\.\//.test(url)) { // security check
+				response.writeHead(404);
+				response.end();
+				return;
+			}
+
+			fs.readFile(url, function(err, buffer) {
+				if (err) {
+					response.writeHead(404);
+					response.end();
+					return;
+				}
+				response.writeHead(200, {
+					'content-type':mimes.resolve(url)
+				});
+				response.end(buffer);
+			});
+		});
 	};
 	
 	that.close = function() {
@@ -123,40 +147,3 @@ var createRouter = function(options) { // TODO: params instead of matches
 };
 
 exports.create = createRouter;
-
-var fs = require('fs');
-var path = require('path');
-var mimes = require('mimes');
-
-exports.onfilerequest = function(dir, options) {
-
-	options = options || {};
-	// TODO: add cache option
-
-	return function(request, response) {
-		var url = request.url.split('?')[0];
-		
-		url = (request.matches && request.matches.path) || path.normalize(url);
-		
-		// security check
-		if (/\/\.\.\//.test(url)) {
-			response.writeHead(404);
-			response.end();
-			return;
-		}
-		
-		url = path.join(dir, url);
-
-		fs.readFile(url, function(err, buffer) {
-			if (err) {
-				response.writeHead(404);
-				response.end();
-				return;
-			}
-			response.writeHead(options.status || 200, {
-				'content-type':mimes.resolve(url)
-			});
-			response.end(buffer);				
-		});			
-	};
-};
