@@ -108,8 +108,8 @@ var createRouter = function(options) { // TODO: params instead of matches
 	that.post = router(methods.post);
 	that.head = router(methods.head);
 
-	that.file = function(base, pattern, rewrite) {
-		that.get(pattern, rewrite, exports.onfilerequest(base));
+	that.file = function(pattern, base) {
+		that.get(pattern, exports.onfilerequest(base || '.'));
 	};
 	
 	that.close = function() {
