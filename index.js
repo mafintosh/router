@@ -128,22 +128,33 @@ var createRouter = function(options) { // TODO: params instead of matches
 		
 		that.get(pattern, rewrite, function(request, response) {
 			var url = path.normalize(request.url.split('?')[0]);
-
-			if (/\/\.\.\//.test(url)) { // security check
+			
+			var onnotfound = function() {
 				response.writeHead(404);
 				response.end();
+			};
+
+			if (/\/\.\.\//.test(url)) { // security check
+				onnotfound();
 				return;
 			}
+			fs.stat(url, common.fork(onnotfound, function(stat) {
+				var ifmod = request.headers['if-modified-since'];
 
-			fs.readFile(url, function(err, buffer) {
-				if (err) {
-					response.writeHead(404);
+				if (ifmod && new Date(ifmod) >= stat.mtime) {
+					response.writeHead(304);
 					response.end();
 					return;
 				}
-				response.writeHead(options.status, {'content-type':mimes.resolve(url)});
-				response.end(buffer);
-			});
+				response.writeHead(options.status, {
+					'content-type':mimes.resolve(url),
+					'content-length':stat.size,
+					'date':new Date().toUTCString(),
+					'last-modified':stat.mtime.toUTCString()
+				});
+				fs.createReadStream(url).pipe(response);
+			}));
+			
 		});
 	};
 	
