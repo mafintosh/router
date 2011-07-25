@@ -146,12 +146,18 @@ var createRouter = function(options) { // TODO: params instead of matches
 					response.end();
 					return;
 				}
-				response.writeHead(options.status, {
+
+				var headers = {
 					'content-type':mimes.resolve(url),
 					'content-length':stat.size,
 					'date':new Date().toUTCString(),
 					'last-modified':stat.mtime.toUTCString()
-				});
+				};
+
+				if (options.cacheMaxAge !== undefined)
+					headers['Cache-Control'] = 'public, max-age=' + options.cacheMaxAge;
+
+				response.writeHead(options.status, headers);
 				fs.createReadStream(url).pipe(response);
 			}));
 			
