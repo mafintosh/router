@@ -4,7 +4,7 @@ It is available through npm:
 
 	npm install router
 	
-The router routes using the method and a pattern
+The router routes using the method and a [.net](http://msdn.microsoft.com/en-us/library/cc668201.aspx) inspired pattern
 
 ``` js
 var router = require('router').create();
@@ -68,5 +68,3 @@ router.get(/^\/foo\/(\w+)/, function(request, response) {
 
 Besides `get` the avaiable methods are `options`, `post`, `put`, `head`, `del`, `all` and `upgrade`.
 `all` matches all the standard http methods and `upgrade` is usually used for websockets.
-
-Credit to [express](https://github.com/visionmedia/express) for some of the syntax in the patterns.
