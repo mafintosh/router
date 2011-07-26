@@ -41,12 +41,20 @@ router.get('/{prefix}?/{top}', function(request, response) {
 });
 ```
 
-If you want to just match everything you can use a wildcard `*` which works like unix wildcards.
+If you want to just match everything you can use a wildcard `*` which works like unix wildcards
 
 ``` js
 router.get('/{prefix}/*', function(request, response) {
 	// matches both '/a/', '/a/b', 'a/b/c' and so on.
 	// the value of the wildcard is available through request.params.wildcard
+});
+```
+
+If the standard capture groups aren't expressive enough for you can specify an optional inline regex 
+
+``` js
+router.get('/{digits}([0-9]+)', function(request, response) {
+	// matches both '/24' and '/424' but not '/abefest' and so on.
 });
 ```
 
@@ -57,6 +65,8 @@ router.get(/^\/foo\/(\w+)/, function(request, response) {
 	var group = request.params[1]; // if path is /foo/bar, then group is bar
 });
 ```
+
+Credit to [express](https://github.com/visionmedia/express) for some of the syntax in the patterns.
 
 Besides `get` the avaiable methods are `options`, `post`, `put`, `head`, `del`, `all` and `upgrade`.
 `all` matches all the standard http methods and `upgrade` is usually used for websockets.
