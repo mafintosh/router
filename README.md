@@ -66,7 +66,7 @@ router.get(/^\/foo\/(\w+)/, function(request, response) {
 });
 ```
 
-Credit to [express](https://github.com/visionmedia/express) for some of the syntax in the patterns.
-
 Besides `get` the avaiable methods are `options`, `post`, `put`, `head`, `del`, `all` and `upgrade`.
 `all` matches all the standard http methods and `upgrade` is usually used for websockets.
+
+Credit to [express](https://github.com/visionmedia/express) for some of the syntax in the patterns.
