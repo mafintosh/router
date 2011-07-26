@@ -1,47 +1,36 @@
-var escapeRegex = function(str) {
-	return str.replace(/([\/\\\*\+\.\?\|\(\)\[\]\{\}])/g, '\\$1');
-};
-
 module.exports = function(pattern) {
 	if (typeof pattern !== 'string') { // regex
 		return function(url) {
 			return url.match(pattern);
 		};
 	}
-	var offset = 0;
 	var keys = [];
-	var res = '^';
+	
+	pattern = pattern.replace(/:(\w+)/g, '{$1}'); // normalize
+	pattern = pattern.replace(/(\/)?(\.)?\{([^}]+)\}(?:\(([^)]*)\))?(\?)?/g, function(match, slash, dot, key, capture, opt, offset) {
+		var incl = (pattern[match.length+offset] || '/') === '/';
 
-	pattern.replace(/\{[^\{\}]+\}/g, function(a,b) { // a hack - we use replace as a tokenizer :)
-		res += escapeRegex(pattern.substring(offset, b));
-		offset = a.length+b;
-
-		res += '([^\\'+(pattern[offset]||'/')+']*)';
-
-		keys.push(a.substring(1, a.length-1));		
+		keys.push(key);
+		
+		return (incl ? '(?:' : '')+(slash || '')+(incl ? '' : '(?:')+(dot || '')+'('+(capture || '[^/]+')+'))'+(opt || '');
 	});
+	pattern = pattern.replace(/([\/.])/g, '\\$1').replace(/\*/g, '(.+)');
+	pattern = new RegExp('^'+pattern+'[\\/]?$', 'i');
 
-	res += escapeRegex(pattern.substring(offset));
-	res += (res[res.length-1] === '/' ? '' : '/?')+'$';
-	res = new RegExp(res, 'i');
-
-	if (!keys.length) { // small optimization
-		return function(str) {
-			return res.test(str);
-		};
-	}
 	return function(str) {
-		var match = str.match(res);
+		var match = str.match(pattern);
 
 		if (!match) {
 			return match;
 		}
 		var map = {};
 		
-		match.slice(1).forEach(function(result, i) {
-			map[keys[i]] = result;
+		match.slice(1).forEach(function(param, i) {
+			var k = keys[i] = keys[i] || 'wildcard';
+
+			map[k] = map[k] ? [].concat(map[k]).concat(param) : param;
 		});
 		
 		return map;
-	};
+	};	
 };

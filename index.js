@@ -1,15 +1,11 @@
-var common = require('common');
 var http = require('http');
 var https = require('https');
-
-var fs = require('fs');
-var path = require('path');
-var mimes = require('mimes');
+var common = require('common');
 
 var matcher = require('./matcher');
 
 var createRouter = function(options) { // TODO: params instead of matches
-	var that = {};
+	var that = common.createEmitter();
 	
 	options = options || {};
 	
@@ -25,7 +21,7 @@ var createRouter = function(options) { // TODO: params instead of matches
 		return createRouter({server:options, autoclose:false});
 	}
 	
-	var methods = {request:[], upgrade:[], get:[], put:[], post:[], head:[], 'delete':[]};	
+	var methods = {upgrade:[], get:[], put:[], post:[], head:[], 'delete':[], options:[]};	
 	var server = options.server || (options.key ? https.createServer({key:options.key,cert:options.cert}) : http.createServer());
 	
 	that.autoclose = options.autoclose !== false;
@@ -42,8 +38,7 @@ var createRouter = function(options) { // TODO: params instead of matches
 	};
 	
 	that.route = function(request, response) {
-		if (find(methods.request, request, response) || 
-			find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
+		if (find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
 			return;
 		}
 		if (request.method === 'POST' || request.method === 'PUT') { // TODO: check if node doesn't already do this
@@ -55,22 +50,16 @@ var createRouter = function(options) { // TODO: params instead of matches
 	};
 	
 	server.on('request', function(request, response) {
-		if (request.method === 'OPTIONS') {
-			response.writeHead(200, {
-				'access-control-allow-origin': '*',
-				'access-control-allow-methods': 'PUT, POST, GET, OPTIONS',
-				'access-control-allow-headers': 'Content-Type'					
-			});
-			response.end();
-			return;
-		}
+		that.emit('request', request, response);
 		that.route(request, response);
 	});
 	server.on('upgrade', function(request, connection, head) {
+		if (that.listeners('upgrade').length) {
+			that.emit('upgrade', request, connection, head);
+		}
 		if (find(methods.upgrade, request, connection, head)) {
 			return;
 		}
-		
 		connection.destroy();
 	});	
 	
@@ -97,7 +86,7 @@ var createRouter = function(options) { // TODO: params instead of matches
 						request.url = common.format(rewrite, matches);
 					}
 
-					request.matches = matches;
+					request.params = matches;
 					fn(request, a, b);
 
 					return true;
@@ -107,62 +96,21 @@ var createRouter = function(options) { // TODO: params instead of matches
 		};
 	};
 	
-	that.request = router(methods.request);
-	that.upgrade = router(methods.upgrade);
+	var fns = ['get', 'put', 'del', 'post', 'head', 'options'];
+			
+	fns.forEach(function(method) {
+		that[method] = router(methods[method.replace('del', 'delete')]);
+	});
 	
-	that.get = router(methods.get);
-	that.put = router(methods.put);
-	that.del = router(methods['delete']); // :(
-
-	that.post = router(methods.post);
-	that.head = router(methods.head);
-
-	that.file = function(pattern, rewrite, options) {
-		if (arguments.length === 1 || typeof rewrite === 'object') {
-			options = rewrite;
-			rewrite = pattern;
-			pattern = /(.*)/g;
-		}
-		options = options || {};
-		options.status = options.status || 200;
+	that.all = function() {
+		var args = arguments;
 		
-		that.get(pattern, rewrite, function(request, response) {
-			var url = path.normalize(request.url.split('?')[0]);
-			
-			var onnotfound = function() {
-				response.writeHead(404);
-				response.end();
-			};
-
-			if (/\/\.\.\//.test(url)) { // security check
-				onnotfound();
-				return;
-			}
-			fs.stat(url, common.fork(onnotfound, function(stat) {
-				var ifmod = request.headers['if-modified-since'];
-
-				if (ifmod && new Date(ifmod) >= stat.mtime) {
-					response.writeHead(304);
-					response.end();
-					return;
-				}
-
-				var headers = {
-					'content-type':mimes.resolve(url),
-					'content-length':stat.size,
-					'date':new Date().toUTCString(),
-					'last-modified':stat.mtime.toUTCString()
-				};
-
-				if (options.cacheMaxAge !== undefined)
-					headers['Cache-Control'] = 'public, max-age=' + options.cacheMaxAge;
-
-				response.writeHead(options.status, headers);
-				fs.createReadStream(url).pipe(response);
-			}));
-			
+		fns.forEach(function(method) {
+			that[method].apply(that, args);
 		});
 	};
+
+	that.upgrade = router(methods.upgrade);
 	
 	that.close = function() {
 		server.close.apply(server, arguments);
