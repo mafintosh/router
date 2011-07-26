@@ -4,19 +4,16 @@ var common = require('common');
 
 var matcher = require('./matcher');
 
-var createRouter = function(options) { // TODO: params instead of matches
+var createRouter = function(options) {
 	var that = common.createEmitter();
 	
 	options = options || {};
 	
-	// this check may seem a bit confusing. basicly if options is a server or a router
-	// then just return the attached router
+	// TODO: maybe listen for # of request handlers on the server to decide whether to autoclose
+
 	if (options.router) {
 		return options.router;
 	}
-	// if options if already a server we just sugar it and create a router
-	// that doesnt autoclose (otherwise we could have really weird rcs)
-	// TODO: maybe listen for # of request handlers on the server to decide whether to autoclose
 	if (typeof options.listen === 'function') {
 		return createRouter({server:options, autoclose:false});
 	}
