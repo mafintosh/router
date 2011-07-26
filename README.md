@@ -21,7 +21,7 @@ If you want to grap a part of the path you can use capture groups in the pattern
 
 ``` js
 router.get('/{base}', function(request, response) {
-	var base = request.matches.base; // ex: if the path is /foo/bar, then base = foo
+	var base = request.params.base; // ex: if the path is /foo/bar, then base = foo
 });
 ```
 
@@ -29,7 +29,24 @@ The capture patterns matches until the next `/` or character present after the g
 
 ``` js
 router.get('/{x}x{y}', function(request, response) {
-	// if the path was /200x200, then request.matches = {x:'200', y:'200'}
+	// if the path was /200x200, then request.params = {x:'200', y:'200'}
+});
+```
+
+Optional patterns are supported by adding a `?` at the end
+
+``` js
+router.get('/{prefix}?/{top}', function(request, response) {
+	// matches both '/a/b' and '/b'
+});
+```
+
+If you want to just match everything you can use a wildcard `*` which works like unix wildcards.
+
+``` js
+router.get('/{prefix}/*', function(request, response) {
+	// matches both '/a/', '/a/b', 'a/b/c' and so on.
+	// the value of the wildcard is available through request.params.wildcard
 });
 ```
 
@@ -37,9 +54,9 @@ You can also use regular expressions and the related capture groups instead:
 
 ``` js
 router.get(/^\/foo\/(\w+)/, function(request, response) {
-	var group = request.matches[1]; // if path is /foo/bar, then group is bar
+	var group = request.params[1]; // if path is /foo/bar, then group is bar
 });
 ```
 
-Besides `get` the avaiable methods are `post`, `put`, `head`, `del`, `request` and `upgrade`.
-`request` matches all the standard http methods and `upgrade` is usually used for websockets.
+Besides `get` the avaiable methods are `options`, `post`, `put`, `head`, `del`, `all` and `upgrade`.
+`all` matches all the standard http methods and `upgrade` is usually used for websockets.
