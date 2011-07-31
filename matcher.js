@@ -31,6 +31,10 @@ module.exports = function(pattern) {
 			map[k] = map[k] ? [].concat(map[k]).concat(param) : param;
 		});
 		
+		if (map.wildcard) {
+			map['*'] = map.wildcard;
+		}
+		
 		return map;
 	};	
 };
