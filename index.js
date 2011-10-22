@@ -38,6 +38,9 @@ var createRouter = function(options) {
 		if (find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
 			return;
 		}
+		if (that.listeners('request').length) {			
+			return;
+		}
 		if (request.method === 'POST' || request.method === 'PUT') { // TODO: check if node doesn't already do this
 			request.connection.destroy(); // don't waste bandwidth on data we don't want
 			return;
@@ -51,13 +54,15 @@ var createRouter = function(options) {
 		that.route(request, response);
 	});
 	server.on('upgrade', function(request, connection, head) {
-		if (that.listeners('upgrade').length) {
-			that.emit('upgrade', request, connection, head);
-		}
+		that.emit('upgrade', request, connection, head);
+
 		if (find(methods.upgrade, request, connection, head)) {
 			return;
 		}
-		connection.destroy();
+		if (that.listeners('upgrade').length) {
+			return;
+		}
+		connection.destroy();		
 	});	
 	
 	var router = function(methods) {
