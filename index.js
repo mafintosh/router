@@ -4,6 +4,16 @@ var common = require('common');
 
 var matcher = require('./matcher');
 
+var bufferify = function(param) {
+	if (Buffer.isBuffer(param)) {
+		return param;
+	}
+	if (param.indexOf('\n') > -1) {
+		return new Buffer(param);
+	}
+	return require('fs').readFileSync(param);
+};
+
 var createRouter = function(options) {
 	var that = common.createEmitter();
 	
@@ -19,7 +29,7 @@ var createRouter = function(options) {
 	}
 	
 	var methods = {upgrade:[], get:[], put:[], post:[], head:[], 'delete':[], options:[]};	
-	var server = options.server || (options.key ? https.createServer({key:options.key,cert:options.cert}) : http.createServer());
+	var server = options.server || (options.key ? https.createServer({key:bufferify(options.key),cert:bufferify(options.cert)}) : http.createServer());
 	
 	that.autoclose = options.autoclose !== false;
 	that.server = server;
