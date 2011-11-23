@@ -4,6 +4,7 @@ var common = require('common');
 
 var matcher = require('./matcher');
 
+var noop = function() {};
 var bufferify = function(param) {
 	if (Buffer.isBuffer(param)) {
 		return param;
@@ -127,8 +128,14 @@ var createRouter = function(options) {
 	that.close = function() {
 		server.close.apply(server, arguments);
 	};
-	that.listen = function() {
-		server.listen.apply(server, arguments);
+	that.listen = function(port, callback) {
+		if (typeof port === 'function') {
+			callback = port;
+			port = undefined;
+		}
+
+		port = port || (options.key ? 443 : 80);
+		server.listen(port, callback || noop);
 	};
 	
 	return that;
