@@ -37,6 +37,9 @@ var createRouter = function(options) {
 	that.router = server.router = that;
 	
 	var find = function(handlers, request, a, b) {
+		if (!handlers) {
+			return false;
+		}
 		for (var i = 0; i < handlers.length; i++) {
 			if (handlers[i](request, a, b)) {
 				return true;
