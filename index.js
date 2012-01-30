@@ -52,7 +52,7 @@ var createRouter = function(options) {
 		if (find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
 			return;
 		}
-		if (that.listeners('request').length) {			
+		if (that.listeners('request').length || server.listeners('request').length > 1) {			
 			return;
 		}
 		if (request.method === 'POST' || request.method === 'PUT') { // TODO: check if node doesn't already do this
@@ -73,7 +73,7 @@ var createRouter = function(options) {
 		if (find(methods.upgrade, request, connection, head)) {
 			return;
 		}
-		if (that.listeners('upgrade').length) {
+		if (that.listeners('upgrade').length || server.listeners('upgrade').length > 1) {
 			return;
 		}
 		connection.destroy();		
