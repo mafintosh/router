@@ -1,7 +1,6 @@
 var http = require('http');
 var https = require('https');
 var common = require('common');
-
 var matcher = require('./matcher');
 
 var noop = function() {};
@@ -12,16 +11,15 @@ var bufferify = function(param) {
 	if (param.indexOf('\n') > -1) {
 		return new Buffer(param);
 	}
+
 	return require('fs').readFileSync(param);
 };
 
 var createRouter = function(options) {
 	var that = common.createEmitter();
-	
+
 	options = options || {};
 	
-	// TODO: maybe listen for # of request handlers on the server to decide whether to autoclose
-
 	if (options.router) {
 		return options.router;
 	}
@@ -45,9 +43,39 @@ var createRouter = function(options) {
 				return true;
 			}
 		}
+
 		return false;
 	};
+	var onrequest = function(request, response) {
+		that.emit('request', request, response);
+		that.route(request, response);		
+	};
+	var onupgrade = function(request, connection, head) {
+		that.emit('upgrade', request, connection, head);
+
+		if (find(methods.upgrade, request, connection, head)) {
+			return;
+		}
+		if (that.listeners('upgrade').length || server.listeners('upgrade').length > 1) {
+			return;
+		}
+
+		connection.destroy();
+	};
 	
+	that.from = function(server, options) {
+		if (options && typeof options === 'object' && typeof server === 'number') {
+			return that.from(https.createServer(options).listen(server));
+		}
+		if (typeof server === 'number' || typeof server === 'string') {
+			return that.from(http.createServer().listen(server));
+		}
+
+		server.on('request', onrequest);
+		server.on('upgrade', onupgrade);
+
+		return that;
+	};
 	that.route = function(request, response) {
 		if (find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
 			return;
@@ -59,26 +87,11 @@ var createRouter = function(options) {
 			request.connection.destroy(); // don't waste bandwidth on data we don't want
 			return;
 		}
+
 		response.writeHead(404);
 		response.end();
 	};
-	
-	server.on('request', function(request, response) {
-		that.emit('request', request, response);
-		that.route(request, response);
-	});
-	server.on('upgrade', function(request, connection, head) {
-		that.emit('upgrade', request, connection, head);
-
-		if (find(methods.upgrade, request, connection, head)) {
-			return;
-		}
-		if (that.listeners('upgrade').length || server.listeners('upgrade').length > 1) {
-			return;
-		}
-		connection.destroy();		
-	});	
-	
+		
 	var router = function(methods) {
 		return function(pattern, rewrite, fn) {
 			if (arguments.length === 1) {
@@ -107,27 +120,27 @@ var createRouter = function(options) {
 
 					return true;
 				}
+
 				return false;
 			});
 		};
 	};
 	
 	var fns = ['get', 'put', 'del', 'post', 'head', 'options'];
-			
+	
 	fns.forEach(function(method) {
 		that[method] = router(methods[method.replace('del', 'delete')]);
 	});
 	
+	that.upgrade = router(methods.upgrade);
+
 	that.all = function() {
 		var args = arguments;
 		
 		fns.forEach(function(method) {
 			that[method].apply(that, args);
 		});
-	};
-
-	that.upgrade = router(methods.upgrade);
-	
+	};	
 	that.close = function() {
 		server.close.apply(server, arguments);
 	};
@@ -141,7 +154,7 @@ var createRouter = function(options) {
 		server.listen(port, callback || noop);
 	};
 	
-	return that;
+	return that.from(server);
 };
 
 exports.create = createRouter;
