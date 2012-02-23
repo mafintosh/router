@@ -63,12 +63,12 @@ var createRouter = function(options) {
 		connection.destroy();
 	};
 	
-	that.from = function(server, options) {
+	that.bind = function(server, options) {
 		if (options && typeof options === 'object' && typeof server === 'number') {
-			return that.from(https.createServer(options).listen(server));
+			return that.bind(https.createServer(options).listen(server));
 		}
 		if (typeof server === 'number' || typeof server === 'string') {
-			return that.from(http.createServer().listen(server));
+			return that.bind(http.createServer().listen(server));
 		}
 
 		server.on('request', onrequest);
@@ -154,7 +154,7 @@ var createRouter = function(options) {
 		server.listen(port, callback || noop);
 	};
 	
-	return that.from(server);
+	return that.bind(server);
 };
 
 exports.create = createRouter;
