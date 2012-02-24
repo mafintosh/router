@@ -33,6 +33,13 @@ var createRouter = function(options) {
 	that.autoclose = options.autoclose !== false;
 	that.server = server;
 	that.router = server.router = that;
+
+	server.on('listening', function() {
+		that.emit('listening');
+	});
+	server.on('close', function() {
+		that.emit('close');
+	});
 	
 	var find = function(handlers, request, a, b) {
 		if (!handlers) {
