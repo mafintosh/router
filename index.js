@@ -160,6 +160,12 @@ var createRouter = function(options) {
 		port = port || (options.key ? 443 : 80);
 		server.listen(port, callback || noop);
 	};
+	that.prefix = function(prefix) {
+		var prefixed = createRouter();
+
+		that.all((prefix || '').replace(/\/$/,'')+'/*', '/{*}', prefixed.route);
+		return prefixed;
+	};
 	
 	return that.bind(server);
 };
