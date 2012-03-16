@@ -1,10 +1,18 @@
 var http = require('http');
 var https = require('https');
 var common = require('common');
-var matcher = require('./matcher');
+var compile = require('./lib/matcher');
+
+var METHODS = ['get', 'post', 'put', 'del', 'head'];
+var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'UPGRADE'];
 
 var noop = function() {};
-var bufferify = function(param) {
+var toBuffer = function(param) {
+	if (param.cert && param.key) {
+		param.cert = toBuffer(param.cert);
+		param.key = toBuffer(param.key);
+		return param;
+	}
 	if (Buffer.isBuffer(param)) {
 		return param;
 	}
@@ -15,159 +23,202 @@ var bufferify = function(param) {
 	return require('fs').readFileSync(param);
 };
 
-var createRouter = function(options) {
-	var that = common.createEmitter();
+var Router = common.emitter(function(server, options) {
+	var self = this;
 
-	options = options || {};
+	this.route = this.route.bind(this);
+	this.router = this;
+	this.server = server;
+	this.last = {};
+
+	if (server) {
+		server.router = this;
+	}
+
+	this._methods = {};
+	this._servers = [];
 	
+	if (options && options.hang) {
+		return;
+	}
+
+	HTTP_METHODS.forEach(function(method) {
+		var type = method === 'UPGRADE' ? 'upgrade' : 'request';
+
+		self._methods[method] = [];
+		self.last[method] = function(request, response) {
+			if (type === 'upgrade' && !self.listeners('upgrade').length) {
+				response.destroy(); // to support legacy interface we need to check if anyone else is listening
+				return;
+			}
+
+			response.writeHead(404);
+			response.end();
+		};
+	});
+
+});
+
+METHODS.concat('upgrade').forEach(function(method) {
+	var httpMethod = method.replace('del', 'delete').toUpperCase();
+
+	Router.prototype[method] = function(pattern, rewrite, fn) {
+		var self = this;
+
+		if (Array.isArray(pattern)) {
+			pattern.forEach(function(item) {
+				self[method](item, rewrite, fn);
+			});
+
+			return this;
+		};
+		if (typeof pattern === 'function') {
+			this.last[httpMethod] = pattern;
+			return;
+		}
+		if (!fn && typeof rewrite === 'string') {
+			fn = this.route;
+		}
+		if (!fn) {
+			fn = rewrite;
+			rewrite = null;
+		}
+
+		pattern = compile(pattern);
+		this._methods[httpMethod].push(function(request, a, b, c) {
+			var next = c || b;
+			var params = request.params = pattern(request.url);
+
+			if (!params) {
+				next();
+				return;
+			}
+			if (rewrite) {
+				request.url = common.format(rewrite, request.params);
+			}
+
+			fn(request, a, b, c);
+		});
+
+		return this;
+	};
+});
+
+Router.prototype.all = function() {
+	var self = this;
+	var args = arguments;
+
+	METHODS.forEach(function(method) {
+		self[method].apply(self, args);
+	});
+
+	return this;
+};
+Router.prototype.route = function(request, response) {
+	this._find(request.method, request, response);
+};
+Router.prototype.listen = function(port, callback) {
+	var server = this.server || http.createServer();
+
+	this.bind(server);
+
+	server.once('listening', callback || noop);
+	server.listen(port);
+
+	return this;
+};
+Router.prototype.bind = function(server, ssl) {
+	var self = this;
+	var notServer = typeof server === 'number' || typeof server === 'string';
+
+	if (notServer && ssl && typeof ssl === 'object') {
+		return this.bind(https.createServer(toBuffer(ssl)).listen(server));
+	}
+	if (notServer) {
+		return this.bind(http.createServer().listen(server));
+	}
+
+	server.router = this;
+	server.on('request', function(request, response) {
+		self._find(request.method, request, response);
+		self.emit('request', request, response);
+	});
+	server.on('upgrade', function(request, connection, head) {
+		self._find('UPGRADE', request, connection, head);
+		self.emit('upgrade', request, console, head);
+	});
+
+	this._servers.push(server);
+
+	return this;
+};
+Router.prototype.close = function(callback) {
+	var self = this;
+
+	this.once('close', callback || noop);
+
+	common.step([
+		function(next) {
+			if (!self._servers.length) {
+				next();
+				return;
+			}
+
+			self._servers.forEach(function(server) {
+				server.close(next.parallel());
+			});
+		},
+		function() {
+			self.emit('close');
+		}
+	]);
+};
+Router.prototype.namespace = Router.prototype.prefix = function(prefix) {
+	var router = new Router();
+
+	prefix = '/'+prefix.replace(/^\//, '').replace(/\/$/, '');
+	this.all(prefix+'/*', '/{*}', router.route).all(prefix, '/', router.route);
+
+	return router;
+};
+
+Router.prototype._find = function(method, request, response) {
+	var routes = this._methods[method];
+	var last = this.last[method] || noop;
+	var index = 0;
+
+	if (!routes) {
+		request.destroy();
+		return;
+	}
+
+	var loop = function() {
+		if (index >= routes.length) {
+			last(request, response);
+			return;
+		}
+
+		routes[index++](request, response, loop);
+	};
+
+	loop();
+};
+
+module.exports = function(options) {
+	if (!options) {
+		return new Router();
+	}
 	if (options.router) {
 		return options.router;
 	}
 	if (typeof options.listen === 'function') {
-		return createRouter({server:options, autoclose:false});
+		return new Router(options, {hang:true});
 	}
-	
-	var methods = {upgrade:[], get:[], put:[], post:[], head:[], 'delete':[], options:[]};	
-	var server = options.server || (options.key ? https.createServer({key:bufferify(options.key),cert:bufferify(options.cert)}) : http.createServer());
-	
-	that.autoclose = options.autoclose !== false;
-	that.server = server;
-	that.router = server.router = that;
+	if (options.cert) {
+		return new Router(https.createServer(toBuffer(options.cert)));
+	}
 
-	server.on('listening', function() {
-		that.emit('listening');
-	});
-	server.on('close', function() {
-		that.emit('close');
-	});
-	
-	var find = function(handlers, request, a, b) {
-		if (!handlers) {
-			return false;
-		}
-		for (var i = 0; i < handlers.length; i++) {
-			if (handlers[i](request, a, b)) {
-				return true;
-			}
-		}
-
-		return false;
-	};
-	var onrequest = function(request, response) {
-		that.emit('request', request, response);
-		that.route(request, response);		
-	};
-	var onupgrade = function(request, connection, head) {
-		that.emit('upgrade', request, connection, head);
-
-		if (find(methods.upgrade, request, connection, head)) {
-			return;
-		}
-		if (that.listeners('upgrade').length || server.listeners('upgrade').length > 1) {
-			return;
-		}
-
-		connection.destroy();
-	};
-	
-	that.bind = function(server, options) {
-		if (options && typeof options === 'object' && typeof server === 'number') {
-			return that.bind(https.createServer(options).listen(server));
-		}
-		if (typeof server === 'number' || typeof server === 'string') {
-			return that.bind(http.createServer().listen(server));
-		}
-
-		server.on('request', onrequest);
-		server.on('upgrade', onupgrade);
-
-		return that;
-	};
-	that.route = function(request, response) {
-		if (find(methods[request.method.toLowerCase()], request, response) || !that.autoclose) {
-			return;
-		}
-		if (that.listeners('request').length || server.listeners('request').length > 1) {			
-			return;
-		}
-		if (request.method === 'POST' || request.method === 'PUT') { // TODO: check if node doesn't already do this
-			request.connection.destroy(); // don't waste bandwidth on data we don't want
-			return;
-		}
-
-		response.writeHead(404);
-		response.end();
-	};
-		
-	var router = function(methods) {
-		return function(pattern, rewrite, fn) {
-			if (arguments.length === 1) {
-				fn = pattern;
-				rewrite = undefined;
-				pattern = /.*/;
-			}
-			if (!fn) {
-				fn = rewrite;
-				rewrite = undefined;
-			}
-
-			var match = matcher(pattern);
-
-			rewrite = rewrite && rewrite.replace(/\$(\d+)/g, '{$1}');
-			methods.push(function(request, a, b) {
-				var matches = match(request.url.split('?')[0]);
-
-				if (matches) {
-					if (rewrite) {
-						request.url = common.format(rewrite, matches);
-					}
-
-					request.params = matches;
-					fn(request, a, b);
-
-					return true;
-				}
-
-				return false;
-			});
-		};
-	};
-	
-	var fns = ['get', 'put', 'del', 'post', 'head', 'options'];
-	
-	fns.forEach(function(method) {
-		that[method] = router(methods[method.replace('del', 'delete')]);
-	});
-	
-	that.upgrade = router(methods.upgrade);
-
-	that.all = function() {
-		var args = arguments;
-		
-		fns.forEach(function(method) {
-			that[method].apply(that, args);
-		});
-	};	
-	that.close = function() {
-		server.close.apply(server, arguments);
-	};
-	that.listen = function(port, callback) {
-		if (typeof port === 'function') {
-			callback = port;
-			port = undefined;
-		}
-
-		port = port || (options.key ? 443 : 80);
-		server.listen(port, callback || noop);
-	};
-	that.prefix = function(prefix) {
-		var prefixed = createRouter();
-
-		that.all((prefix || '').replace(/\/$/,'')+'/*', '/{*}', prefixed.route);
-		return prefixed;
-	};
-	
-	return that.bind(server);
+	return new Router();
 };
 
-exports.create = createRouter;
+module.exports.create = module.exports;
