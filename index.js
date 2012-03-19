@@ -87,7 +87,8 @@ METHODS.concat('upgrade').forEach(function(method) {
 		pattern = compile(pattern);
 		this._methods[httpMethod].push(function(request, a, b, c) {
 			var next = c || b;
-			var params = request.params = pattern(request.url);
+			var index = request.url.indexOf('?');
+			var params = request.params = pattern(index === -1 ? request.url : request.url.substring(0, index));
 
 			if (!params) {
 				next();
