@@ -3,8 +3,8 @@ var https = require('https');
 var common = require('common');
 var compile = require('./lib/matcher');
 
-var METHODS = ['get', 'post', 'put', 'del', 'head'];
-var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'UPGRADE'];
+var METHODS = ['get', 'post', 'put', 'del', 'head', 'options'];
+var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'UPGRADE', 'OPTIONS'];
 
 var noop = function() {};
 var toBuffer = function(param) {
