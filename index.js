@@ -4,7 +4,7 @@ var common = require('common');
 var compile = require('./lib/matcher');
 
 var METHODS = ['get', 'post', 'put', 'del', 'head', 'options'];
-var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'UPGRADE', 'OPTIONS'];
+var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'];
 
 var noop = function() {};
 var toBuffer = function(param) {
@@ -29,7 +29,6 @@ var Router = common.emitter(function(server, options) {
 	this.route = this.route.bind(this);
 	this.router = this;
 	this.server = server;
-	this.last = {};
 
 	if (server) {
 		server.router = this;
@@ -37,29 +36,26 @@ var Router = common.emitter(function(server, options) {
 
 	this._methods = {};
 	this._servers = [];
+	this._end = {};
 	
+	this.on('request', function(request, response) {
+		self._find(request, response);
+	});
+
 	if (options && options.hang) {
 		return;
 	}
 
 	HTTP_METHODS.forEach(function(method) {
-		var type = method === 'UPGRADE' ? 'upgrade' : 'request';
-
 		self._methods[method] = [];
-		self.last[method] = function(request, response) {
-			if (type === 'upgrade' && !self.listeners('upgrade').length) {
-				response.destroy(); // to support legacy interface we need to check if anyone else is listening
-				return;
-			}
-
+		self._end[method] = function(request, response) {
 			response.writeHead(404);
 			response.end();
 		};
 	});
-
 });
 
-METHODS.concat('upgrade').forEach(function(method) {
+METHODS.concat('delete').forEach(function(method) {
 	var httpMethod = method.replace('del', 'delete').toUpperCase();
 
 	Router.prototype[method] = function(pattern, rewrite, fn) {
@@ -73,7 +69,7 @@ METHODS.concat('upgrade').forEach(function(method) {
 			return this;
 		};
 		if (typeof pattern === 'function') {
-			this.last[httpMethod] = pattern;
+			this._end[httpMethod] = pattern;
 			return;
 		}
 		if (!fn && typeof rewrite === 'string') {
@@ -105,6 +101,11 @@ METHODS.concat('upgrade').forEach(function(method) {
 	};
 });
 
+Router.prototype.upgrade = function(fn) {
+	this.on('upgrade', fn);
+
+	return this;
+};
 Router.prototype.all = function() {
 	var self = this;
 	var args = arguments;
@@ -116,7 +117,7 @@ Router.prototype.all = function() {
 	return this;
 };
 Router.prototype.route = function(request, response) {
-	this._find(request.method, request, response);
+	this._find(request, response);
 };
 Router.prototype.listen = function(port, callback) {
 	var server = this.server || http.createServer();
@@ -141,12 +142,15 @@ Router.prototype.bind = function(server, ssl) {
 
 	server.router = this;
 	server.on('request', function(request, response) {
-		self._find(request.method, request, response);
 		self.emit('request', request, response);
 	});
 	server.on('upgrade', function(request, connection, head) {
-		self._find('UPGRADE', request, connection, head);
-		self.emit('upgrade', request, console, head);
+		if (!self.listeners('upgrade').length) {
+			connection.destroy();
+			return;
+		}
+
+		self.emit('upgrade', request, connection, head);
 	});
 
 	this._servers.push(server);
@@ -183,9 +187,10 @@ Router.prototype.namespace = Router.prototype.prefix = function(prefix) {
 	return router;
 };
 
-Router.prototype._find = function(method, request, response) {
+Router.prototype._find = function(request, response) {
+	var method = request.method;
 	var routes = this._methods[method];
-	var last = this.last[method] || noop;
+	var end = this._end[method] || noop;
 	var index = 0;
 
 	if (!routes) {
@@ -195,7 +200,7 @@ Router.prototype._find = function(method, request, response) {
 
 	var loop = function() {
 		if (index >= routes.length) {
-			last(request, response);
+			end(request, response);
 			return;
 		}
 
