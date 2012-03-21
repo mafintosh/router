@@ -6,6 +6,11 @@ var compile = require('./lib/matcher');
 var METHODS = ['get', 'post', 'put', 'del', 'head', 'options'];
 var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'];
 
+var NOT_FOUND = function(request, response) {
+	response.writeHead(404);
+	response.end();
+};
+
 var noop = function() {};
 var toBuffer = function(param) {
 	if (param.cert && param.key) {
@@ -46,10 +51,7 @@ var Router = common.emitter(function(server, options) {
 
 	HTTP_METHODS.forEach(function(method) {
 		self._methods[method] = [];
-		self._end[method] = function(request, response) {
-			response.writeHead(404);
-			response.end();
-		};
+		self._end[method] = NOT_FOUND;
 	});
 });
 
@@ -119,8 +121,8 @@ Router.prototype.all = function() {
 
 	return this;
 };
-Router.prototype.route = function(request, response) {
-	this._find(request, response);
+Router.prototype.route = function(request, response, next) {
+	this._find(request, response, next);
 };
 Router.prototype.listen = function(port, callback) {
 	var server = this.server || http.createServer();
@@ -182,10 +184,10 @@ Router.prototype.close = function(callback) {
 	]);
 };
 
-Router.prototype._find = function(request, response) {
+Router.prototype._find = function(request, response, next) {
 	var method = request.method;
 	var routes = this._methods[method];
-	var end = this._end[method] || noop;
+	var end = this._end[method];
 	var index = 0;
 
 	if (!routes) {
@@ -195,6 +197,11 @@ Router.prototype._find = function(request, response) {
 
 	var loop = function() {
 		if (index >= routes.length) {
+			if (next && (!end || end === NOT_FOUND)) {
+				next();
+				return;
+			}
+
 			end(request, response, noop);
 			return;
 		}
