@@ -67,7 +67,10 @@ METHODS.concat('delete').forEach(function(method) {
 			});
 
 			return this;
-		};
+		}
+
+		this.emit('mount', method, pattern, rewrite, fn);
+
 		if (typeof pattern === 'function') {
 			this._end[httpMethod] = pattern;
 			return;
