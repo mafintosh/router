@@ -101,7 +101,7 @@ METHODS.concat('delete').forEach(function(method) {
 
 Router.prototype.detach = function() {
 	this.removeListener('request', this.route);
-	
+
 	return this.route;
 };
 Router.prototype.upgrade = function(fn) {
@@ -180,14 +180,6 @@ Router.prototype.close = function(callback) {
 			self.emit('close');
 		}
 	]);
-};
-Router.prototype.namespace = Router.prototype.prefix = function(prefix) {
-	var router = new Router();
-
-	prefix = '/'+prefix.replace(/^\//, '').replace(/\/$/, '');
-	this.all(prefix+'/*', '/{*}', router.route).all(prefix, '/', router.route);
-
-	return router;
 };
 
 Router.prototype._find = function(request, response) {
