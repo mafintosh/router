@@ -195,7 +195,7 @@ Router.prototype._find = function(request, response) {
 
 	var loop = function() {
 		if (index >= routes.length) {
-			end(request, response);
+			end(request, response, noop);
 			return;
 		}
 
