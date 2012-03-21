@@ -38,9 +38,7 @@ var Router = common.emitter(function(server, options) {
 	this._servers = [];
 	this._end = {};
 	
-	this.on('request', function(request, response) {
-		self._find(request, response);
-	});
+	this.on('request', this.route);
 
 	if (options && options.hang) {
 		return;
@@ -101,6 +99,11 @@ METHODS.concat('delete').forEach(function(method) {
 	};
 });
 
+Router.prototype.detach = function() {
+	this.removeListener('request', this.route);
+	
+	return this.route;
+};
 Router.prototype.upgrade = function(fn) {
 	this.on('upgrade', fn);
 
