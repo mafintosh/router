@@ -127,6 +127,9 @@ Router.prototype.all = function() {
 Router.prototype.route = function(request, response, next) {
 	this._find(request, response, next);
 };
+Router.prototype.address = function() {
+	return this.server ? this.server.address() : {};
+};
 Router.prototype.listen = function(port, callback) {
 	var server = this.server || http.createServer();
 
