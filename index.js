@@ -135,9 +135,9 @@ Router.prototype.listen = function(port, callback) {
 	var self = this;
 
 	this.bind(server);
-	this.on('listening', callback || noop);
+	this.once('listening', callback || noop);
 
-	server.once('listening', function() {
+	server.on('listening', function() {
 		self.emit('listening');
 	});
 	server.listen(port);
