@@ -132,10 +132,14 @@ Router.prototype.address = function() {
 };
 Router.prototype.listen = function(port, callback) {
 	var server = this.server || http.createServer();
+	var self = this;
 
 	this.bind(server);
+	this.on('listening', callback || noop);
 
-	server.once('listening', callback || noop);
+	server.once('listening', function() {
+		self.emit('listening');
+	});
 	server.listen(port);
 
 	return this;
