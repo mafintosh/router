@@ -198,7 +198,11 @@ Router.prototype._find = function(request, response, next) {
 		return;
 	}
 
-	var loop = function() {
+	var loop = function(err) {
+		if (err && next) {
+			next(err);
+			return;
+		}
 		if (index >= routes.length) {
 			if (next && (!end || end === NOT_FOUND)) {
 				next();
