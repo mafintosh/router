@@ -131,7 +131,7 @@ Router.prototype.address = function() {
 	return this.server ? this.server.address() : {};
 };
 Router.prototype.listen = function(port, callback) {
-	var server = this.server || http.createServer();
+	var server = this.server = this.server || http.createServer();
 	var self = this;
 
 	this.bind(server);
@@ -168,6 +168,7 @@ Router.prototype.bind = function(server, ssl) {
 		self.emit('upgrade', request, connection, head);
 	});
 
+	this.emit('bind', server);
 	this._servers.push(server);
 
 	return this;
