@@ -42,6 +42,7 @@ var Router = common.emitter(function(server, options) {
 	this._methods = {};
 	this._servers = [];
 	this._end = {};
+	this._listening = false;
 	
 	this.on('request', this.route);
 
@@ -137,7 +138,13 @@ Router.prototype.listen = function(port, callback) {
 	var server = this.server = this.server || http.createServer();
 	var self = this;
 
+	if (this._listening) {
+		server.listen(port);
+		return this;
+	}
+	
 	this.bind(server);
+	this._listening = true;
 	this.once('listening', callback || noop);
 
 	server.on('error', function(err) {
