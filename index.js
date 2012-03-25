@@ -82,6 +82,9 @@ METHODS.concat('delete').forEach(function(method) {
 			fn = rewrite;
 			rewrite = null;
 		}
+		if (rewrite) {
+			rewrite = rewrite.replace(/:(\w+)/g, '{$1}'); // normalize
+		}
 
 		pattern = compile(pattern);
 		this._methods[httpMethod].push(function(request, a, b, c) {
