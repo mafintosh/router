@@ -1,7 +1,7 @@
 var http = require('http');
 var https = require('https');
 var common = require('common');
-var compile = require('./lib/matcher');
+var compile = require('./matcher');
 
 var METHODS = ['get', 'post', 'put', 'del', 'head', 'options'];
 var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -140,6 +140,9 @@ Router.prototype.listen = function(port, callback) {
 	this.bind(server);
 	this.once('listening', callback || noop);
 
+	server.on('error', function(err) {
+		self.emit('error', err);
+	});
 	server.on('listening', function() {
 		self.emit('listening');
 	});
@@ -156,6 +159,9 @@ Router.prototype.bind = function(server, ssl) {
 	}
 	if (notServer) {
 		return this.bind(http.createServer().listen(server));
+	}
+	if (this._servers.indexOf(server) > -1) {
+		return this;
 	}
 
 	server.router = this;
