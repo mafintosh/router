@@ -38,7 +38,7 @@ module.exports = function(pattern) {
 		match.slice(1).forEach(function(param, i) {
 			var k = keys[i] = keys[i] || 'wildcard';
 
-			param = decode(param);
+			param = param && decode(param);
 			map[k] = map[k] ? [].concat(map[k]).concat(param) : param;
 		});
 		
