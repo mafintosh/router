@@ -98,7 +98,7 @@ METHODS.concat('delete').forEach(function(method) {
 				return;
 			}
 			if (rewrite) {
-				request.url = common.format(rewrite, request.params);
+				request.url = common.format(rewrite, request.params) + (index === -1 ? '' : request.url.substring(index));
 			}
 
 			fn(request, a, b, c);
