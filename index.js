@@ -202,7 +202,10 @@ Router.prototype.close = function(callback) {
 			}
 
 			self._servers.forEach(function(server) {
-				server.close(next.parallel());
+				var callback = common.once(next.parallel().bind(null, null));
+
+				server.once('close', callback);
+				server.close(callback);
 			});
 		},
 		function() {
