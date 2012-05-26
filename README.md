@@ -19,12 +19,7 @@ route.get('/', function(req, res) {
 	res.end('hello index page');
 });
 
-http.createServer(function(req, res) {
-	route(req, res, function() {
-		res.writeHead(404);
-		res.end('no route matched...');
-	});
-}).listen(8080); // start the server on port 8080
+http.createServer(route).listen(8080); // start the server on port 8080
 ```
 
 If you want to grap a part of the path you can use capture groups in the pattern:
@@ -84,3 +79,26 @@ route.get(/^\/foo\/(\w+)/, function(request, response) {
 * `route.head`: Match `HEAD` requests 
 * `route.del`:  Match `DELETE` requests
 * `route.all`:  Match all above request methods.
+
+## Error handling
+
+By default Router will return 404 if you no route matched.  
+If you want to do your own thing you can give it a callback:
+
+``` js
+route(req, res, function() {
+	// no route was matched
+	res.writeHead(404);
+	res.end();
+});
+```
+
+You can also provide a catch-all to a given route that is called if no route was matched:
+
+``` js
+route.get(function(req, res) {
+	// called if no other get route matched
+	res.writeHead(404);
+	res.end('no GET handler found');
+});
+```
