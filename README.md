@@ -5,7 +5,7 @@ It is available through npm:
 
 	npm install router
 	
-# Usage
+## Usage
 
 Router does one thing and one thing only - route http requests.
 
@@ -76,7 +76,7 @@ route.get(/^\/foo\/(\w+)/, function(request, response) {
 });
 ```
 
-# Methods:
+## Methods
 
 * `route.get`:  Match `GET` requests
 * `route.post`: Match `POST` requests
