@@ -78,6 +78,7 @@ route.get(/^\/foo\/(\w+)/, function(req, res) {
 * `route.put`:  Match `PUT` requests
 * `route.head`: Match `HEAD` requests 
 * `route.del`:  Match `DELETE` requests
+* `route.options`:  Match `OPTIONS` requests
 * `route.all`:  Match all above request methods.
 
 ## Error handling
