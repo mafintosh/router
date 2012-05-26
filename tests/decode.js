@@ -1,6 +1,7 @@
 var assert = require('assert');
 var route = require('../index')();
 
+var res = {end:function() {}};
 var count = 0;
 
 route.get('/{a}/*', function(req, res) {
@@ -10,6 +11,6 @@ route.get('/{a}/*', function(req, res) {
 	count++;
 });
 
-route({method:'GET', url:'/a%20c/b%20c/c%20d'});
+route({method:'GET', url:'/a%20c/b%20c/c%20d'},res);
 
 assert.equal(count, 1);

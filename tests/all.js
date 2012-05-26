@@ -1,6 +1,7 @@
 var assert = require('assert');
 var route = require('../index')();
 
+var res = {end:function() {}};
 var count = 0;
 var order = ['GET','POST','OPTIONS','HEAD','DELETE','PUT'];
 
@@ -10,20 +11,20 @@ route.all('/', function(req, res) {
 	count++;
 });
 
-route({method:'GET', url:'/'});
-route({method:'POST', url:'/'});
-route({method:'OPTIONS', url:'/'});
-route({method:'HEAD', url:'/'});
-route({method:'DELETE', url:'/'});
-route({method:'PUT', url:'/'});
+route({method:'GET', url:'/'},res);
+route({method:'POST', url:'/'},res);
+route({method:'OPTIONS', url:'/'},res);
+route({method:'HEAD', url:'/'},res);
+route({method:'DELETE', url:'/'},res);
+route({method:'PUT', url:'/'},res);
 
-route({method:'GET', url:'/a'});
-route({method:'POST', url:'/a'});
-route({method:'OPTIONS', url:'/a'});
-route({method:'HEAD', url:'/a'});
-route({method:'DELETE', url:'/a'});
-route({method:'PUT', url:'/a'});
+route({method:'GET', url:'/a'},res);
+route({method:'POST', url:'/a'},res);
+route({method:'OPTIONS', url:'/a'},res);
+route({method:'HEAD', url:'/a'},res);
+route({method:'DELETE', url:'/a'},res);
+route({method:'PUT', url:'/a'},res);
 
-route({method:'NOT_GET', url:'/'});
+route({method:'NOT_GET', url:'/'},res);
 
 assert.equal(count, 6);
