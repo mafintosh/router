@@ -25,23 +25,23 @@ http.createServer(route).listen(8080); // start the server on port 8080
 If you want to grap a part of the path you can use capture groups in the pattern:
 
 ``` js
-route.get('/{base}', function(request, response) {
-	var base = request.params.base; // ex: if the path is /foo/bar, then base = foo
+route.get('/{base}', function(req, res) {
+	var base = req.params.base; // ex: if the path is /foo/bar, then base = foo
 });
 ```
 
 The capture patterns matches until the next `/` or character present after the group
 
 ``` js
-route.get('/{x}x{y}', function(request, response) {
-	// if the path was /200x200, then request.params = {x:'200', y:'200'}
+route.get('/{x}x{y}', function(req, res) {
+	// if the path was /200x200, then req.params = {x:'200', y:'200'}
 });
 ```
 
 Optional patterns are supported by adding a `?` at the end
 
 ``` js
-route.get('/{prefix}?/{top}', function(request, response) {
+route.get('/{prefix}?/{top}', function(req, res) {
 	// matches both '/a/b' and '/b'
 });
 ```
@@ -49,16 +49,16 @@ route.get('/{prefix}?/{top}', function(request, response) {
 If you want to just match everything you can use a wildcard `*` which works like unix wildcards
 
 ``` js
-route.get('/{prefix}/*', function(request, response) {
+route.get('/{prefix}/*', function(req, res) {
 	// matches both '/a/', '/a/b', 'a/b/c' and so on.
-	// the value of the wildcard is available through request.params.wildcard
+	// the value of the wildcard is available through req.params.wildcard
 });
 ```
 
 If the standard capture groups aren't expressive enough for you can specify an optional inline regex 
 
 ``` js
-route.get('/{digits}([0-9]+)', function(request, response) {
+route.get('/{digits}([0-9]+)', function(req, res) {
 	// matches both '/24' and '/424' but not '/abefest' and so on.
 });
 ```
@@ -66,8 +66,8 @@ route.get('/{digits}([0-9]+)', function(request, response) {
 You can also use regular expressions and the related capture groups instead:
 
 ``` js
-route.get(/^\/foo\/(\w+)/, function(request, response) {
-	var group = request.params[1]; // if path is /foo/bar, then group is bar
+route.get(/^\/foo\/(\w+)/, function(req, res) {
+	var group = req.params[1]; // if path is /foo/bar, then group is bar
 });
 ```
 
