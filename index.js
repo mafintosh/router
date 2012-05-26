@@ -5,7 +5,7 @@ var METHODS      = ['get', 'post', 'put', 'del'   , 'delete', 'head', 'options']
 var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'DELETE', 'HEAD', 'OPTIONS'];
 
 var noop = function() {};
-var notFound = function(res) {
+var error = function(res) {
 	return function() {
 		res.statusCode = 404;
 		res.end();
@@ -26,7 +26,7 @@ var router = function() {
 		var url = index === -1 ? req.url : req.url.substr(0, index);
 		var i = 0;
 
-		next = next || notFound(res);
+		next = next || error(res);
 		if (!method) return next();
 
 		var loop = function(err) {
