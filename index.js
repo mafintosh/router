@@ -1,266 +1,86 @@
-var http = require('http');
-var https = require('https');
-var common = require('common');
-var compile = require('./matcher');
+var matcher = require('./matcher');
+var formatter = require('./formatter');
 
-var METHODS = ['get', 'post', 'put', 'del', 'head', 'options'];
-var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'];
-
-var NOT_FOUND = function(request, response) {
-	response.writeHead(404);
-	response.end();
-};
+var METHODS      = ['get', 'post', 'put', 'del'   , 'delete', 'head', 'options'];
+var HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'DELETE', 'HEAD', 'OPTIONS'];
 
 var noop = function() {};
-var toBuffer = function(param) {
-	if (param.cert && param.key) {
-		param.cert = toBuffer(param.cert);
-		param.key = toBuffer(param.key);
-		return param;
-	}
-	if (Buffer.isBuffer(param)) {
-		return param;
-	}
-	if (param.indexOf('\n') > -1) {
-		return new Buffer(param);
-	}
-
-	return require('fs').readFileSync(param);
-};
-
-var Router = common.emitter(function(server, options) {
-	var self = this;
-
-	this.route = this.route.bind(this);
-	this.router = this;
-	this.server = server;
-
-	if (server) {
-		server.router = this;
-	}
-
-	this._methods = {};
-	this._servers = [];
-	this._end = {};
-	this._listening = false;
-	
-	this.on('request', this.route);
-
-	if (options && options.hang) {
-		return;
-	}
+var router = function() {
+	var methods = {};
+	var traps = {};
 
 	HTTP_METHODS.forEach(function(method) {
-		self._methods[method] = [];
-		self._end[method] = NOT_FOUND;
+		methods[method] = [];
 	});
-});
 
-METHODS.concat('delete').forEach(function(method) {
-	var httpMethod = method.replace('del', 'delete').toUpperCase();
+	var route = function(req, res, next) {
+		var method = methods[req.method];
+		var trap = traps[req.method];
+		var index = req.url.indexOf('?');
+		var url = index === -1 ? req.url : req.url.substr(0, index);
+		var i = 0;
 
-	Router.prototype[method] = function(pattern, rewrite, fn) {
-		var self = this;
+		next = next || noop;
+		if (!method) return next();
 
-		if (Array.isArray(pattern)) {
-			pattern.forEach(function(item) {
-				self[method](item, rewrite, fn);
-			});
+		var loop = function(err) {
+			if (err) return next(err);
+			while (i < method.length) {
+				var route = method[i];
 
-			return this;
-		}
-
-		this.emit('mount', method, pattern, rewrite, fn);
-
-		if (typeof pattern === 'function') {
-			this._end[httpMethod] = pattern;
-			return;
-		}
-		if (!fn && typeof rewrite === 'string') {
-			fn = this.route;
-		}
-		if (!fn) {
-			fn = rewrite;
-			rewrite = null;
-		}
-		if (rewrite) {
-			rewrite = rewrite.replace(/:(\w+)/g, '{$1}'); // normalize
-		}
-
-		pattern = compile(pattern);
-		this._methods[httpMethod].push(function(request, a, b, c) {
-			var next = c || b;
-			var index = request.url.indexOf('?');
-			var params = request.params = pattern(index === -1 ? request.url : request.url.substring(0, index));
-
-			if (!params) {
-				next();
+				i++;
+				req.params = route.pattern(url);
+				if (!req.params) continue;
+				if (route.rewrite) {
+					req.url = url = route.rewrite(req.params);
+				}
+				route.fn(req, res, loop);
 				return;
 			}
-			if (rewrite) {
-				request.url = common.format(rewrite, request.params) + (index === -1 ? '' : request.url.substring(index));
+			if (!trap) return next();
+			trap(req, res, next);
+		};
+
+		loop();
+	};
+
+	METHODS.forEach(function(method, i) {
+		route[method] = function(pattern, rewrite, fn) {
+			if (Array.isArray(pattern)) {
+				pattern.forEach(function(item) {
+					route[method](item, rewrite, fn);
+				});
+				return;
 			}
 
-			fn(request, a, b, c);
+			if (!fn && !rewrite)                      return route[method](null, null, pattern);
+			if (!fn && typeof rewrite === 'string')   return route[method](pattern, rewrite, route);
+			if (!fn && typeof rewrite === 'function') return route[method](pattern, null, rewrite);
+			if (!fn) return route;
+
+			(route.onmount || noop)(pattern, rewrite, fn);
+
+			if (!pattern) {
+				traps[HTTP_METHODS[i]] = fn;
+				return route;
+			}
+
+			methods[HTTP_METHODS[i]].push({
+				pattern:matcher(pattern),
+				rewrite:formatter(rewrite),
+				fn:fn
+			});
+			return route;
+		};
+	});
+	route.all = function(pattern, rewrite, fn) {
+		METHODS.forEach(function(method) {
+			route[method](pattern, rewrite, fn);
 		});
-
-		return this;
-	};
-});
-
-Router.prototype.detach = function() {
-	this.removeListener('request', this.route);
-
-	return this.route;
-};
-Router.prototype.upgrade = function(fn) {
-	this.on('upgrade', fn);
-
-	return this;
-};
-Router.prototype.all = function() {
-	var self = this;
-	var args = arguments;
-
-	METHODS.forEach(function(method) {
-		self[method].apply(self, args);
-	});
-
-	return this;
-};
-Router.prototype.route = function(request, response, next) {
-	this._find(request, response, next);
-};
-Router.prototype.address = function() {
-	return this.server ? this.server.address() : {};
-};
-Router.prototype.listen = function(port, callback) {
-	var server = this.server = this.server || http.createServer();
-	var self = this;
-
-	if (this._listening) {
-		server.listen(port);
-		return this;
-	}
-	
-	this.bind(server);
-	this._listening = true;
-	this.once('listening', callback || noop);
-
-	server.on('error', function(err) {
-		self.emit('error', err);
-	});
-	server.on('listening', function() {
-		self.emit('listening');
-	});
-	server.listen(port);
-
-	return this;
-};
-Router.prototype.bind = function(server, ssl) {
-	var self = this;
-	var notServer = typeof server === 'number' || typeof server === 'string';
-
-	if (notServer && ssl && typeof ssl === 'object') {
-		return this.bind(https.createServer(toBuffer(ssl)).listen(server));
-	}
-	if (notServer) {
-		return this.bind(http.createServer().listen(server));
-	}
-	if (this._servers.indexOf(server) > -1) {
-		return this;
-	}
-
-	server.router = this;
-	server.on('request', function(request, response) {
-		self.emit('request', request, response);
-	});
-	server.on('upgrade', function(request, connection, head) {
-		if (!self.listeners('upgrade').length) {
-			connection.destroy();
-			return;
-		}
-
-		self.emit('upgrade', request, connection, head);
-	});
-
-	this.emit('bind', server);
-	this._servers.push(server);
-
-	return this;
-};
-Router.prototype.close = function(callback) {
-	var self = this;
-
-	this.once('close', callback || noop);
-
-	common.step([
-		function(next) {
-			if (!self._servers.length) {
-				next();
-				return;
-			}
-
-			self._servers.forEach(function(server) {
-				var callback = common.once(next.parallel().bind(null, null));
-
-				server.once('close', callback);
-				server.close(callback);
-			});
-		},
-		function() {
-			self.emit('close');
-		}
-	]);
-};
-
-Router.prototype._find = function(request, response, next) {
-	var method = request.method;
-	var routes = this._methods[method];
-	var end = this._end[method];
-	var index = 0;
-
-	if (!routes) {
-		request.destroy();
-		return;
-	}
-
-	var loop = function(err) {
-		if (err && next) {
-			next(err);
-			return;
-		}
-		if (index >= routes.length) {
-			if (next && (!end || end === NOT_FOUND)) {
-				next();
-				return;
-			}
-
-			end(request, response, noop);
-			return;
-		}
-
-		routes[index++](request, response, loop);
+		return route;
 	};
 
-	loop();
+	return route;
 };
 
-module.exports = function(options) {
-	if (!options) {
-		return new Router();
-	}
-	if (options.router) {
-		return options.router;
-	}
-	if (typeof options.listen === 'function') {
-		return new Router(options, {hang:true});
-	}
-	if (options.cert) {
-		return new Router(https.createServer(toBuffer(options.cert)));
-	}
-
-	return new Router();
-};
-
-module.exports.create = module.exports;
+module.exports = router;
