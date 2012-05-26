@@ -82,8 +82,7 @@ route.get(/^\/foo\/(\w+)/, function(req, res) {
 
 ## Error handling
 
-By default Router will return 404 if you no route matched.  
-If you want to do your own thing you can give it a callback:
+By default Router will return 404 if you no route matched. If you want to do your own thing you can give it a callback:
 
 ``` js
 route(req, res, function() {
