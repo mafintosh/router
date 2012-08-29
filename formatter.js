@@ -1,9 +1,12 @@
-var Param = function(item) {
-	this.item = item;
+var param = function(val) {
+	return function(map) {
+		return map[val];
+	};
 };
-
-Param.prototype.toString = function(params) {
-	return params[this.item];
+var str = function(val) {
+	return function() {
+		return val;
+	};
 };
 
 module.exports = function(format) {
@@ -11,12 +14,12 @@ module.exports = function(format) {
 
 	format = format.replace(/\{\*\}/g, '*').replace(/\*/g, '{*}').replace(/:(\w+)/g, '{$1}'); // normalize
 	format = format.match(/(?:[^\{]+)|(?:{[^\}]+\})/g).map(function(item) {
-		return item[0] !== '{' ? item : new Param(item.substring(1, item.length-1));
+		return item[0] !== '{' ? str(item) : param(item.substring(1, item.length-1));
 	});
 
 	return function(params) {
-		return format.reduce(function(item, result) {
-			return result+item.toString(params);
+		return format.reduce(function(result, item) {
+			return result+item(params);
 		}, '');
 	};
 };
