@@ -38,7 +38,7 @@ var router = function() {
 				req.params = route.pattern(url);
 				if (!req.params) continue;
 				if (route.rewrite) {
-					req.url = url = route.rewrite(req.params);
+					req.url = url = route.rewrite(req.params)+(index === -1 ? '' : req.url.substr(index));
 				}
 				route.fn(req, res, loop);
 				return;
