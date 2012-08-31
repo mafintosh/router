@@ -22,7 +22,7 @@ route.get('/', function(req, res) {
 http.createServer(route).listen(8080); // start the server on port 8080
 ```
 
-If you want to grap a part of the path you can use capture groups in the pattern:
+If you want to grab a part of the path you can use capture groups in the pattern:
 
 ``` js
 route.get('/{base}', function(req, res) {
