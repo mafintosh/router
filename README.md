@@ -102,3 +102,7 @@ route.get(function(req, res) {
 	res.end('no GET handler found');
 });
 ```
+
+## License
+
+MIT
