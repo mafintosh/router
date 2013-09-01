@@ -8,7 +8,8 @@ var noop = function() {};
 var error = function(res) {
 	return function() {
 		res.statusCode = 404;
-		res.end();
+		if (res.end) res.end();
+		if (res.close) res.close();
 	};
 };
 var router = function() {
