@@ -22,6 +22,26 @@ route.get('/', function(req, res) {
 http.createServer(route).listen(8080); // start the server on port 8080
 ```
 
+If you your http server doesn't take in a first parameter (e.g. phantomjs) you
+can do the following
+
+``` js
+var webserver = require('webserver');
+var router = require('router');
+var route = router();
+
+route.get('/', function(req, res) {
+	res.writeHead(200);
+	res.end('hello index page');
+});
+
+// start the server on port 8080
+http.createServer(route).listen(8080, function (req, res) {
+  route(req, res);
+});
+
+```
+
 If you want to grab a part of the path you can use capture groups in the pattern:
 
 ``` js
